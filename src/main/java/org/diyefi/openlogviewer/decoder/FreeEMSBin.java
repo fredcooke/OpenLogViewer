@@ -23,9 +23,11 @@
 package org.diyefi.openlogviewer.decoder;
 
 
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.BufferedInputStream;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Arrays;
 
@@ -74,6 +76,8 @@ public class FreeEMSBin extends AbstractDecoder implements Runnable { // impleme
 	private int lastClockInMilliSecondsValue;
 	private boolean firstClockInMilliSecondsStored = false;
 	private long accurateClock; // Convert to floating point just before storing.
+	private int RPM;
+	private BufferedWriter bwr = null;
 
 	private static String[] coreStatusAFlagNames = {
 		"CS-FuelPumpPrime",
@@ -198,6 +202,7 @@ public class FreeEMSBin extends AbstractDecoder implements Runnable { // impleme
 	public FreeEMSBin(final File f) {
 		startTime = System.currentTimeMillis(); // Let's profile this bitch! OS style :-)
 		logFile = f;
+
 		startFound = false;
 		packetBuffer = new short[MAXIMUM_PACKET_LENGTH];
 		packetLength = 0;
@@ -242,6 +247,7 @@ public class FreeEMSBin extends AbstractDecoder implements Runnable { // impleme
 	public final void run() {
 		FileInputStream fis = null;
 		BufferedInputStream bis = null;
+		FileWriter fwr = null;
 		try {
 			// file setup
 			final byte[] readByte = new byte[1];
@@ -260,7 +266,9 @@ public class FreeEMSBin extends AbstractDecoder implements Runnable { // impleme
 
 			startFound = false;
 			fis = new FileInputStream(logFile);
+			fwr = new FileWriter(new File(logFile.getParent(), logFile.getName() + ".sw"));
 			bis = new BufferedInputStream(fis);
+			bwr = new BufferedWriter(fwr);
 			decodedLog.setLogStatus(GenericLog.LogState.LOG_LOADING);
 			while (bis.read(readByte) != -1) {
 				uByte = unsignedValueOf(readByte[0]);
@@ -357,6 +365,23 @@ public class FreeEMSBin extends AbstractDecoder implements Runnable { // impleme
 				ioe.printStackTrace();
 				System.out.println("Failed To Close FIS Stream!");
 			}
+
+			try {
+				if(bwr != null) {
+					bwr.close();
+				}
+			}catch (IOException ioe){
+				ioe.printStackTrace();
+				System.out.println("Failed To Close PWR Stream!");
+			}
+			try {
+				if(fwr != null) {
+					fwr.close();
+				}
+			}catch (IOException ioe){
+				ioe.printStackTrace();
+				System.out.println("Failed To Close FWR Stream!");
+			}
 		}
 	}
 
@@ -448,6 +473,13 @@ public class FreeEMSBin extends AbstractDecoder implements Runnable { // impleme
 					firstClockInMilliSecondsStored = true;
 				}
 
+				try {
+					bwr.write(accurateClock + " " + RPM + "\n");
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+
 				lastClockInMilliSecondsValue = rawValue;
 			} else if (i == tempClockIndex) {
 				if (firstTempClockStored) {
@@ -485,6 +517,10 @@ public class FreeEMSBin extends AbstractDecoder implements Runnable { // impleme
 				decodedLog.addValue(field.getID(), rawValue);
 			} else if (field.getType() == types.SINT32) {
 				decodedLog.addValue(field.getID(), rawValue);
+			}
+
+			if (field.getID().equals("RPM")){
+				RPM = rawValue / 2;
 			}
 			// TODO handle floats
 		}
