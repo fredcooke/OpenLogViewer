@@ -520,7 +520,7 @@ public class FreeEMSBin extends AbstractDecoder implements Runnable { // impleme
 			}
 
 			if (field.getID().equals("RPM")){
-				RPM = rawValue / 2;
+				RPM = rawValue - 500;
 			}
 			// TODO handle floats
 		}
