@@ -253,7 +253,7 @@ public class FreeEMSBin extends AbstractDecoder {
 			}
 		}
 
-		decodedLog = new GenericLog(Arrays.copyOfRange(headers, 0, headersPosition), initialLength, loadFactor, labels);
+		decodedLog = new GenericLog(Arrays.copyOfRange(headers, 0, headersPosition), initialLength, loadFactor, labels, f.getPath());
 
 		t = new Thread(this, "FreeEMSBin Loading");
 		t.setPriority(Thread.MAX_PRIORITY);

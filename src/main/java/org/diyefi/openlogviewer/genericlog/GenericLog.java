@@ -25,10 +25,18 @@ package org.diyefi.openlogviewer.genericlog;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.Writer;
+import java.util.ArrayList;
+import java.util.Deque;
 import java.util.LinkedHashMap;
 import java.util.Iterator;
 import java.util.Arrays;
+import java.util.List;
 import java.util.ResourceBundle;
+import java.util.Set;
 
 import org.diyefi.openlogviewer.Keys;
 import org.diyefi.openlogviewer.OpenLogViewer;
@@ -39,6 +47,8 @@ public class GenericLog extends LinkedHashMap<String, GenericDataElement> {
 	public static final String RECORD_COUNT_KEY = "OLV Record Count"; // Fixed references, not for translation
 	public static final String tempResetKey = "OLV Temp Resets";      // Fixed references, not for translation
 	public static final String elapsedTimeKey = "OLV Elapsed Time";   // Fixed references, not for translation
+	public static final String DEL = ", ";
+	private boolean virgin = true;
 
 	// TODO this is no good, get rid of it, show some sort of status indicator in the GUI showing that log loading is not complete
 	// For streams, always show that as a way of saying "still streaming!"
@@ -59,6 +69,7 @@ public class GenericLog extends LinkedHashMap<String, GenericDataElement> {
 	private final PropertyChangeSupport pcs;
 	private final int ourLoadFactor;
 	private final int numberOfInternalHeaders;
+	private String path;
 
 	private LogState logStatus;
 	private String logStatusMessage;
@@ -84,6 +95,10 @@ public class GenericLog extends LinkedHashMap<String, GenericDataElement> {
 		}
 	};
 
+	public GenericLog(final String[] headers, final int initialCapacity, final int ourLoadFactor, final ResourceBundle labels, final String path) {
+		this(headers, initialCapacity, ourLoadFactor, labels);
+		this.path = path;
+	}
 	/**
 	 * provide a <code>String</code> array of headers<br>
 	 * each header will be used as a HashMap key, the data related to each header will be added to an <code>ArrayList</code>.
@@ -199,6 +214,40 @@ public class GenericLog extends LinkedHashMap<String, GenericDataElement> {
 	 * @param newLogStatus GenericLog.LOG_NOT_LOADED / GenericLog.LOG_LOADING / GenericLog.LOG_LOADED
 	 */
 	public final void setLogStatus(final LogState newLogStatus) {
+
+		if (newLogStatus == LogState.LOG_LOADED && virgin){
+			virgin = false;
+			// hackity hack...
+			Set<String> keys = keySet();
+			List<String> names = new ArrayList<String>();
+			List<GenericDataElement> values = new ArrayList<GenericDataElement>();
+			for (String key : keys) {
+				names.add(key);
+				values.add(get(key));
+			}
+
+			File log = new File(path);
+			File csv = new File(log.getParent(), log.getName() + ".csv");
+			try {
+				Writer out = new BufferedWriter(new FileWriter(csv));
+				for (String name : names) {
+					out.append(name);
+					out.write(DEL);
+				}
+				out.append("\n");
+
+				for(int i = 0; i < currentPosition; i++) {
+					for (GenericDataElement gde : values) {
+						out.append(gde.get(i) + DEL);
+					}
+					out.append("\n");
+				}
+			} catch (Exception e) {
+				System.out.println("Sorry sim!!! :-( " + e.getMessage());
+				e.printStackTrace();
+			}
+		}
+
 		final LogState oldLogStatus = this.logStatus;
 		this.logStatus = newLogStatus;
 		pcs.firePropertyChange(Keys.LOG_LOADED, oldLogStatus, newLogStatus);
